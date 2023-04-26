@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState } from 'react';
-import {StyleSheet, Text, View, TextInput, Image, StatusBar, Button, Alert, ScrollView} from 'react-native';
+import { StyleSheet, Text, View, TextInput, Image, StatusBar, Button, Alert, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 
@@ -14,7 +14,9 @@ const Perfil = () => {
   const [segundoNombre, setSegundoNombre] = useState('');
   const [primerApellido, setPrimerApellido] = useState('');
   const [segundoApellido, setSegundoApellido] = useState('');
+  const [genero, setGenero] = useState('');
   const [rut, setRut] = useState('');
+  const [rutValido, setRutValido] = useState(false); //rut valido es el que se envia, no tiene dv
   const [date, setDate] = useState('');
   const [telefono, setTelefono] = useState('');
   const [correo, setCorreo] = useState('');
@@ -22,157 +24,194 @@ const Perfil = () => {
   const [mutual, setMutual] = useState('');
   const [estamento, setEstamento] = useState('');
   const [tipoEstamento, setTipoEstamento] = useState('');
-  const [establecimiento, setEstablecimiento] = useState('opcion1');
+  const [showMessage, setShowMessage] = useState(false);
 
-  const navigation = useNavigation();
-//-------------------------------------------Funciones-----------------------------------------------  
-  const handleTextChangePrimerNom = (text) => {
-    // Eliminar todos los caracteres que no sean letras usando una expresión regular
-    const onlyLetters = text.replace(/[^A-Za-z]/g, '');
-    setPrimerNombre(onlyLetters);
-  };
-  const handleTextChangeSegNom = (text) => {
-    // Eliminar todos los caracteres que no sean letras usando una expresión regular
-    const onlyLetters = text.replace(/[^A-Za-z]/g, '');
-    setSegundoNombre(onlyLetters);
-  };
-  const handleTextChangePrimerApe = (text) => {
-    // Eliminar todos los caracteres que no sean letras usando una expresión regular
-    const onlyLetters = text.replace(/[^A-Za-z]/g, '');
-    setPrimerApellido(onlyLetters);
-  };
-  const handleTextChangeSegApe = (text) => {
-    // Eliminar todos los caracteres que no sean letras usando una expresión regular
-    const onlyLetters = text.replace(/[^A-Za-z]/g, '');
-    setSegundoApellido(onlyLetters);
+  //-------------------------------------------Limpiar texto-----------------------------------------------  
+  const limpiarTexto = (textoIngresado, setTexto) => {
+    const textoLimpio = textoIngresado.replace(/[^a-zA-ZáéíóúüÁÉÍÓÚÜñÑ]/g, '');
+    setTexto(textoLimpio);
   };
 
-//--------------------------------------------------FECHA-----------------------------------------
-const formatDate = (text) => {
-  // Elimina todo lo que no sea dígito
-  const cleaned = text.replace(/[^0-9]/g, '');
+  //--------------------------------------------------FECHA-----------------------------------------
+  const formatDate = (text) => {
+    // Elimina todo lo que no sea dígito
+    const cleaned = text.replace(/[^0-9]/g, '');
 
-  // Divide en grupos de 2, 2 y 4 caracteres
-  const match = cleaned.match(/^(\d{2})(\d{2})(\d{4})$/);
+    // Divide en grupos de 2, 2 y 4 caracteres
+    const match = cleaned.match(/^(\d{2})(\d{2})(\d{4})$/);
 
-  if (match) {
-    // Formatea la fecha con los separadores deseados
-    const formatted = match[1] + '/' + match[2] + '/' + match[3];
-    setDate(formatted);
-  } else {
-    setDate(cleaned);
+    if (match) {
+      // Formatea la fecha con los separadores deseados
+      const formatted = match[1] + '/' + match[2] + '/' + match[3];
+      setDate(formatted);
+    } else {
+      setDate(cleaned);
+    }
+  };
+  //--------------------------------------------------NUMERO-----------------------------------------
+  const clearNum = (text) => {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    setTelefono(cleaned)
   }
-};
-//--------------------------------------------------NUMERO-----------------------------------------
-const clearNum = (text) =>{
-  const cleaned = text.replace(/[^0-9]/g, '');
-  setTelefono(cleaned)
+  //--------------------------------------------------RUT-----------------------------------------
+  const verificarRut = (rut) => {
+    // Remover guiones y puntos del Rut
+    const rutLimpio = rut.replace(/[^0-9Kk]/g, '');
+
+    // Obtener el número base y dígito verificador
+    const rutRegExp = /^(\d+)([kK\d])$/;
+    const rutSinDigito = rutLimpio.slice(0, -1);
+    const match = rutLimpio.match(rutRegExp);
+
+    if (!match) {
+      // El Rut no cumple con el formato válido
+      console.log('Error', 'El Rut ingresado no es válido');
+      return;
+    }
+
+    const num = parseInt(match[1]);
+    const dv = match[2].toUpperCase();
+
+    // Calcular dígito verificador esperado
+    let M = 0;
+    let S = 1;
+    let numRut = num; // Crear una nueva variable para almacenar el valor numérico del Rut
+    for (; numRut; numRut = Math.floor(numRut / 10)) {
+      S = (S + numRut % 10 * (9 - M++ % 6)) % 11;
+    }
+
+    const dvEsperado = S ? S - 1 + '' : 'K';
+
+    // Comparar dígito verificador ingresado con el esperado
+    if (dv === dvEsperado) {
+      console.log('Éxito', 'El Rut ingresado es válido');
+      setRutValido(rutSinDigito);
+      console.log('rut', rutValido);
+    } else {
+      console.log('Error', 'El Rut ingresado es incorrecto');
+      console.log('rut', rutValido);
+      setRutValido(false);
+    }
+  };
+
+  //--------------------------------------------------------------------------------------------------
+  //--------------------------------------------------sqlLite-----------------------------------------
+  const guardarPerfil = () => {
+    db.transaction((tx) => {
+      tx.executeSql(
+        'INSERT INTO Perfil (primerNombre, segundoNombre, primerApellido, segundoApellido, rut, fechaNacimiento, telefono, correo, domicilio, mutual, estamento, tipoEstamento, establecimiento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+        [primerNombre, segundoNombre, primerApellido, segundoApellido, rut, date, telefono, correo, domicilio, mutual, estamento, tipoEstamento, establecimiento],
+        (tx, results) => {
+          console.log('Los datos se han guardado correctamente');
+        },
+        (error) => {
+          console.log('Ha ocurrido un error al guardar los datos:', error);
+        }
+      );
+    });
+  };
+  //--------------------------------------------------Datos obligatorios-----------------------------------------
+  const savePerfil = async () => {
+    if (!primerNombre || !segundoNombre || !primerApellido || !segundoApellido || !rut || !date || !telefono || !correo || !domicilio || !mutual || !estamento || !tipoEstamento) {
+      console.log('Error', 'Por favor complete todos los campos obligatorios');
+    } else {
+      console.log('Guardado exitoso');
+    }
+  }
+//-----------------------------------------------
+const handleInputPress = () => {
+  setShowMessage(true); // Mostrar el mensaje al seleccionar el input text
+  console.log('entro')
 }
-//--------------------------------------------------RUT-----------------------------------------
-const formatRut = (value) => {
-let formattedValue = value.replace(/\D/g, ''); // Elimina todos los caracteres no numéricos
-formattedValue = formattedValue.substring(0, 9); // Limita el valor a 9 caracteres
-
-if (formattedValue.length <= 1) {
-  return formattedValue;
-}
-
-if (formattedValue.length <= 4) {
-  return `${formattedValue.slice(0, 1)}.${formattedValue.slice(1)}`;
-}
-
-const rutWithoutDv = formattedValue.slice(0, -1);
-const dv = formattedValue.slice(-1);
-return `${rutWithoutDv.slice(0, -3)}.${rutWithoutDv.slice(-3, -1)}.${rutWithoutDv.slice(-1)}-${dv}`;
-};
-const handleRutChange = (value) => {
-  setRut(formatRut(value));
-};
-//--------------------------------------------------------------------------------------------------
-//--------------------------------------------------sqlLite-----------------------------------------
-const guardarPerfil = () => {
-  db.transaction((tx) => {
-    tx.executeSql(
-      'INSERT INTO Perfil (primerNombre, segundoNombre, primerApellido, segundoApellido, rut, fechaNacimiento, telefono, correo, domicilio, mutual, estamento, tipoEstamento, establecimiento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
-      [primerNombre, segundoNombre, primerApellido, segundoApellido, rut, date, telefono, correo, domicilio, mutual, estamento, tipoEstamento, establecimiento],
-      (tx, results) => {
-        console.log('Los datos se han guardado correctamente');
-      },
-      (error) => {
-        console.log('Ha ocurrido un error al guardar los datos:', error);
-      }
-    );
-  });
-};
-//-------------------------------------------------------------------------
-
-
-
   //------------------------------------------------------------------------------------------
-    return(
-        <View style={styles.container}>
-          <ScrollView>
-              <StatusBar backgroundColor="black"/>
+  return (
+    <View style={styles.container}>
+      <ScrollView>
+        <StatusBar backgroundColor="black" />
 
-              <Image
-                style={{ width: 100, height: 100, alignSelf:'center', marginTop:10 }}
-                source={{ uri: "https://upload.wikimedia.org/wikipedia/commons/0/02/Logotipo_del_Instituto_de_Salud_P%C3%BAblica_de_Chile.png" }}
-              />
-              <Text  style={{fontSize:30, color:"black",fontWeight:'bold', alignSelf:'center'}}>Datos Personales</Text>
+        <Image
+          style={styles.image}
+          source={require('./../../assets/logo_MS.png')}
+        />
+        <Text style={{ fontSize: 30, color: "black", fontWeight: 'bold', alignSelf: 'center' }}>Datos Personales</Text>
 
-              <Text style={styles.subTitulo}>Ingrese primer nombre</Text>
-              <TextInput
-                value={primerNombre}
-                onChangeText={handleTextChangePrimerNom}
-                placeholder="Primer nombre"
-                maxLength={15}
-                keyboardType="ascii-capable"
-                style={styles.textInput}
-              />
-              <Text style={styles.subTitulo}>Ingrese segundo nombre</Text>
-            <TextInput
-              value={segundoNombre}
-              onChangeText={handleTextChangeSegNom}
-              placeholder="Segundo nombre"
-              maxLength={15}
-              style={styles.textInput}
-            />
-            <Text style={styles.subTitulo}>Ingrese primer apellido</Text>
-            <TextInput
-              value={primerApellido}
-              onChangeText={handleTextChangePrimerApe}
-              placeholder="Primer apellido"
-              maxLength={15}
-              style={styles.textInput}
-            />
-            <Text style={styles.subTitulo}>Ingrese segundo apellido</Text>
-            <TextInput
-              value={segundoApellido}
-              onChangeText={handleTextChangeSegApe}
-              placeholder="Segundo apellido"
-              maxLength={15}
-              style={styles.textInput}
+        <Text style={styles.subTitulo}>Ingrese primer nombre</Text>
+        <TextInput
+          value={primerNombre}
+          onChangeText={(text) => limpiarTexto(text, setPrimerNombre)}
+          placeholder="Primer nombre"
+          maxLength={15}
+          onPress={handleInputPress}
+          keyboardType="ascii-capable"
+          style={styles.textInput}
+        />{showMessage && ( // Mostrar el mensaje solo si showMessage es true
+        <Text style={{ marginTop: 8, color: 'green' }}>Mensaje de ejemplo</Text>
+      )}
 
-            />
- 
-      <Text style={styles.subTitulo}>Ingrese rut</Text>
+        <Text style={styles.subTitulo}>Ingrese segundo nombre</Text>
+        <TextInput
+          value={segundoNombre}
+          onChangeText={(text) => limpiarTexto(text, setSegundoNombre)}
+          placeholder="Segundo nombre"
+          maxLength={15}
+          style={styles.textInput}
+        />
+        <Text style={styles.subTitulo}>Ingrese primer apellido</Text>
+        <TextInput
+          value={primerApellido}
+          onChangeText={(text) => limpiarTexto(text, setPrimerApellido)}
+          placeholder="Primer apellido"
+          maxLength={15}
+          style={styles.textInput}
+        />
+        <Text style={styles.subTitulo}>Ingrese segundo apellido</Text>
+        <TextInput
+          value={segundoApellido}
+          onChangeText={(text) => limpiarTexto(text, setSegundoApellido)}
+          placeholder="Segundo apellido"
+          maxLength={15}
+          style={styles.textInput}
+
+        />
+
+<Text style={styles.subTitulo}>Ingrese genero</Text>
+        <View style={styles.multiSelect}>
+          <Picker
+            selectedValue={genero}
+            onValueChange={(itemValue) => setGenero(itemValue)}
+          >
+            <Picker.Item label="Seleccione" value="" />
+            <Picker.Item label="Masculino" value="Masculino" />
+            <Picker.Item label="Femenino" value="Femenino" />
+            <Picker.Item label="Sin informacion" value="Sin informacion" />
+          </Picker>
+        </View>
+
+<Text style={styles.subTitulo}>Ingrese rut</Text>
         <TextInput
           value={rut}
-          onChangeText={handleRutChange}
-          maxLength={15}
+          onChangeText={setRut}
+          onBlur={() => verificarRut(rut)}
+          maxLength={12}
           placeholder="11.111.111-1"
-          style={styles.textInput} 
-      />
+          onPress={handleInputPress}
+          style={styles.textInput}
+        />
+        {rutValido ? (
+          <Text style={{ color: 'green', alignSelf:'center'}}>Rut válido</Text>
+        ) : (
+          <Text style={{ color: 'red', alignSelf:'center' }}>Rut incorrecto</Text>
+        )}
 
-      <Text style={styles.subTitulo}>Ingrese fecha nacimiento</Text>
+        <Text style={styles.subTitulo}>Ingrese fecha nacimiento</Text>
         <TextInput
-        value={date}
-        placeholder="dd/mm/yyyy"
-        onChangeText={formatDate}
-        maxLength={10}
-        style={styles.textInput}
-      />
-      <Text style={styles.subTitulo}>Ingrese teléfono</Text>
+          value={date}
+          placeholder="dd/mm/yyyy"
+          onChangeText={formatDate}
+          maxLength={10}
+          style={styles.textInput}
+        />
+        <Text style={styles.subTitulo}>Ingrese teléfono</Text>
         <TextInput
           value={telefono}
           onChangeText={clearNum}
@@ -180,42 +219,44 @@ const guardarPerfil = () => {
           placeholder="111111111"
           maxLength={9}
           style={styles.textInput}
-      />
-      <Text style={styles.subTitulo}>Ingrese correo electrónico</Text>
+        />
+        <Text style={styles.subTitulo}>Ingrese correo electrónico</Text>
         <TextInput
-        value={correo}
-        onChangeText={setCorreo}
-        placeholder="...@gmail.com"
-        maxLength={40}
-        style={styles.textInput}
-      />
-        
+          value={correo}
+          onChangeText={setCorreo}
+          placeholder="...@gmail.com"
+          maxLength={40}
+          style={styles.textInput}
+        />
+
         <Text style={styles.subTitulo}>Ingrese dirección</Text>
         <TextInput
-        value={domicilio}
-        onChangeText={setDomicilio}
-        placeholder="Domicilio"
-        style={styles.textInput}
-      />
-      <Text style={styles.subTitulo}>Ingrese mutual</Text>
-      <View style={styles.multiSelect}>
-        <Picker
+          value={domicilio}
+          onChangeText={setDomicilio}
+          placeholder="Domicilio"
+          style={styles.textInput}
+        />
+        <Text style={styles.subTitulo}>Ingrese mutual</Text>
+        <View style={styles.multiSelect}>
+          <Picker
             selectedValue={mutual}
             onValueChange={(itemValue) => setMutual(itemValue)}
           >
+            <Picker.Item label="Seleccione" value="" />
             <Picker.Item label="ISL" value="ISL" />
             <Picker.Item label="Mutual de seguridad" value="Mutual de seguridad" />
             <Picker.Item label="ACHS" value="ACHS" />
             <Picker.Item label="IST" value="IST" />
             <Picker.Item label="Sin mutualidad" value="Sin mutualidad" />
-        </Picker>
-      </View>
-      <Text style={styles.subTitulo}>Ingrese estamento</Text>
-      <View style={styles.multiSelect}>
-        <Picker
+          </Picker>
+        </View>
+        <Text style={styles.subTitulo}>Ingrese estamento</Text>
+        <View style={styles.multiSelect}>
+          <Picker
             selectedValue={estamento}
             onValueChange={(itemValue) => setEstamento(itemValue)}
           >
+            <Picker.Item label="Seleccione" value="" />
             <Picker.Item label="Auxiliar" value="Auxiliar" />
             <Picker.Item label="Administrativo" value="Administrativo" />
             <Picker.Item label="Tecnico" value="Tecnico" />
@@ -223,55 +264,38 @@ const guardarPerfil = () => {
             <Picker.Item label="Profesional" value="Profesional" />
             <Picker.Item label="Medico" value="Medico" />
             <Picker.Item label="Otro" value="Otro" />
-        </Picker>
-      </View>
-      <Text style={styles.subTitulo}>Indique que estamento</Text>
-        <TextInput
-        value={tipoEstamento}
-        onChangeText={setTipoEstamento}
-        placeholder="Tipo de estamento"
-        style={styles.textInput}
-      />
-
-
-        <Text style={styles.subTitulo}>Seleccione establecimiento ¿sacar?</Text>
-      <View style={styles.multiSelect}>
-        <Picker
-            selectedValue={establecimiento}
-            onValueChange={(itemValue) => setEstablecimiento(itemValue)}
-          >
-            <Picker.Item label="Opción 1" value="opcion1" />
-            <Picker.Item label="Opción 2" value="opcion2" />
-            <Picker.Item label="Opción 3" value="opcion3" />
-        </Picker>
-      </View>
-
-
-
-
-              <View style={styles.Buttons }>
-                <PrimaryButton 
-                    title="Guardar"
-                    color="blue"
-                    //onPress={() => guardarPerfil()}/>
-                    onPress={() => navigation.navigate("Perfil")}/>
-
-                    
-              </View> 
-          </ScrollView>
+          </Picker>
         </View>
-      )
+        <Text style={styles.subTitulo}>Indique que estamento</Text>
+        <TextInput
+          value={tipoEstamento}
+          onChangeText={setTipoEstamento}
+          placeholder="Tipo de estamento"
+          style={styles.textInput}
+        />
+
+        <View style={styles.Buttons}>
+          <PrimaryButton
+            title="Guardar"
+            color="blue"
+            //onPress={() => guardarPerfil()}/>
+            onPress={() => savePerfil()} />
+
+        </View>
+      </ScrollView>
+    </View>
+  )
 }
- //------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
 const styles = StyleSheet.create({
 
   container: {
     paddingVertical: 20,
     paddingHorizontal: 30,
-    
+
     /* alignItems: 'center', */
   },
-  
+
   Titulo: {
     marginTop: 15,
     textAlign: 'center',
@@ -295,13 +319,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     flexDirection: 'row',
     backgroundColor: COLORS.white,
+    borderWidth: 1, // Ancho del borde
+    borderColor: 'black', // Color del borde
     alignItems: 'center',
     paddingHorizontal: 20,
   },
   buttonLayout: {
     justifyContent: 'center',
-    alignItems: 'flex-start', 
-    marginTop:10 
+    alignItems: 'flex-start',
+    marginTop: 10
   },
   Buttons: {
     fontSize: 13,
@@ -309,15 +335,22 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
 
-  multiSelect:{
+  multiSelect: {
     fontSize: 13,
-    marginLeft: 10,
+    height: 50,
     borderRadius: 10,
     backgroundColor: COLORS.white,
-    
+    borderWidth: 1, // Ancho del borde
+    borderColor: 'black', // Color del borde
     /* justifyContent: 'center',
     alignItems: 'center', */
   },
+  image: {
+    width: 100,
+    height: 100,
+    alignSelf: 'center',
+    marginTop: 30,
+  }
   /* container: {
     flex: 1,
     backgroundColor: '#1a9bd7',
@@ -365,7 +398,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     backgroundColor: '#1a9bd7',
   }, */
-  
+
 });
 
 export default Perfil
