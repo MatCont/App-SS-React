@@ -7,15 +7,11 @@ import COLORS from './src/consts/colors';
 import DetailsScreen from './src/views/screens/DetailsScreen';
 import BottomNavigator from './src/views/navigation/BottomNavigator';
 import OnBoardScreen from './src/views/screens/OnBoardScreen';
-import EstablecimientosScreen from './src/consts/EstablecimientosScreen';
-
 const Stack = createStackNavigator();
 
 const App = () => {
   return (
 
-    <EstablecimientosScreen />
-    /*
     <NavigationContainer>
       <StatusBar backgroundColor={COLORS.white} barStyle="dark-content" />
       <Stack.Navigator screenOptions={{headerShown: false}}>
@@ -24,7 +20,7 @@ const App = () => {
         <Stack.Screen name="DetailsScreen" component={DetailsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
-    */
+
   );
 };
 
