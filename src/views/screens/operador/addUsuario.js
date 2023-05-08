@@ -1,0 +1,1 @@
+//puede  ver los usuarios de la bdd que solicitan registrarse (nombre, rut)
